@@ -1,0 +1,557 @@
+cat > /home/anantarora/terraguard_fusion_dashboard_gps_smart.py <<'EOF'
+#!/usr/bin/env python3
+import os, time, threading, json, glob
+from datetime import datetime
+
+import numpy as np
+import cv2
+import requests
+from flask import Flask, Response, jsonify, render_template_string
+
+# -------------------------
+# CONFIG (baseline)
+# -------------------------
+RGB_BASE = os.environ.get("RGB_BASE", "http://127.0.0.1:5000").strip()
+
+LEP_RAW = os.environ.get("LEP_RAW", "/tmp/lepton_stream.raw").strip()
+LEP_W   = int(os.environ.get("LEP_W", "160"))
+LEP_H   = int(os.environ.get("LEP_H", "120"))
+
+THERM_FIRE_C = float(os.environ.get("THERM_FIRE_C", "60.0"))
+PORT = int(os.environ.get("PORT", "8092"))  # NEW port, baseline stays intact
+
+THERM_MAX_H = int(os.environ.get("THERM_MAX_H", "320"))
+RGB_MAX_H   = int(os.environ.get("RGB_MAX_H", "420"))
+
+# -------------------------
+# GPS CONFIG (SMART)
+# -------------------------
+GPS_DEV = os.environ.get("GPS_DEV", "auto").strip()   # "auto" or /dev/ttyACM0 etc
+GPS_BAUDS = [int(x) for x in os.environ.get("GPS_BAUDS", "9600,38400,115200").split(",")]
+GPS_TIMEOUT_S = float(os.environ.get("GPS_TIMEOUT_S", "6.0"))
+GPS_LAST_PATH = os.environ.get("GPS_LAST_PATH", "/tmp/gps_last.json").strip()
+GPS_RAW_LOG   = os.environ.get("GPS_RAW_LOG", "/tmp/gps_raw.log").strip()
+
+# -------------------------
+# Shared state
+# -------------------------
+lock = threading.Lock()
+latest_therm_jpg = None
+rgb_status_cache = {}
+
+gps_cache = {
+    "ok": False,
+    "fix": False,
+    "stale": True,
+    "lat": None,
+    "lon": None,
+    "sats": None,
+    "alt_m": None,
+    "speed_kn": None,
+    "course_deg": None,
+    "last_fix_utc": None,
+    "last_utc": None,
+    "device": None,
+    "baud": None,
+    "reason": "not_started",
+}
+
+app = Flask(__name__)
+
+def utc():
+    return datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
+
+# -------------------------
+# NMEA helpers
+# -------------------------
+def nmea_degmin_to_deg(v, hemi):
+    if not v or "." not in v:
+        return None
+    try:
+        dot = v.index(".")
+        deg_len = dot - 2
+        deg = float(v[:deg_len])
+        minutes = float(v[deg_len:])
+        dec = deg + (minutes / 60.0)
+        if hemi in ("S", "W"):
+            dec = -dec
+        return dec
+    except Exception:
+        return None
+
+def safe_int(x):
+    try: return int(x)
+    except Exception: return None
+
+def safe_float(x):
+    try: return float(x)
+    except Exception: return None
+
+def save_last_good(lat, lon, sats, alt_m):
+    try:
+        obj = {"lat": lat, "lon": lon, "sats": sats, "alt_m": alt_m, "utc": utc()}
+        with open(GPS_LAST_PATH, "w") as f:
+            json.dump(obj, f)
+    except Exception:
+        pass
+
+def load_last_good():
+    try:
+        if os.path.exists(GPS_LAST_PATH):
+            with open(GPS_LAST_PATH, "r") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
+
+def list_candidate_gps_devs():
+    if GPS_DEV != "auto":
+        return [GPS_DEV]
+    # Common candidates
+    cands = []
+    cands += sorted(glob.glob("/dev/ttyACM*"))
+    cands += sorted(glob.glob("/dev/ttyUSB*"))
+    cands += sorted(glob.glob("/dev/serial/by-id/*"))
+    # de-dup while preserving order
+    out = []
+    for d in cands:
+        if d not in out:
+            out.append(d)
+    return out
+
+# -------------------------
+# Thermal worker (baseline)
+# -------------------------
+def thermal_worker():
+    global latest_therm_jpg
+    frame_bytes = LEP_W * LEP_H * 2
+
+    while True:
+        try:
+            if not os.path.exists(LEP_RAW):
+                with lock:
+                    rgb_status_cache["_thermal_ok"] = False
+                    rgb_status_cache["_tmax_c"] = None
+                    rgb_status_cache["_thermal_fire"] = False
+                    rgb_status_cache["_thermal_last_utc"] = utc()
+                time.sleep(0.2)
+                continue
+
+            sz = os.path.getsize(LEP_RAW)
+            if sz < frame_bytes:
+                time.sleep(0.08)
+                continue
+
+            with open(LEP_RAW, "rb") as f:
+                f.seek(sz - frame_bytes)
+                buf = f.read(frame_bytes)
+
+            if len(buf) != frame_bytes:
+                time.sleep(0.05)
+                continue
+
+            frame = np.frombuffer(buf, dtype="<u2").reshape(LEP_H, LEP_W)
+            raw_max = int(frame.max())
+            tmax_c = (raw_max / 100.0) - 273.15
+            thermal_fire = bool(tmax_c >= THERM_FIRE_C)
+
+            img8 = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+            heat = cv2.applyColorMap(img8, cv2.COLORMAP_INFERNO)
+            heat = cv2.resize(heat, (640, 480), interpolation=cv2.INTER_NEAREST)
+
+            cv2.putText(heat, f"Tmax {tmax_c:.1f}C  TH={THERM_FIRE_C:.0f}C",
+                        (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.9,
+                        (255,255,255), 2, cv2.LINE_AA)
+
+            ok, jpg = cv2.imencode(".jpg", heat, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+            if ok:
+                with lock:
+                    latest_therm_jpg = jpg.tobytes()
+                    rgb_status_cache["_thermal_ok"] = True
+                    rgb_status_cache["_tmax_c"] = round(float(tmax_c), 2)
+                    rgb_status_cache["_thermal_fire"] = thermal_fire
+                    rgb_status_cache["_thermal_last_utc"] = utc()
+
+            time.sleep(0.12)
+        except Exception:
+            time.sleep(0.2)
+
+# -------------------------
+# RGB status poller (baseline)
+# -------------------------
+def rgb_poller():
+    global rgb_status_cache
+    while True:
+        try:
+            r = requests.get(RGB_BASE + "/status", timeout=1.5)
+            j = r.json()
+            with lock:
+                rgb_status_cache["_rgb_ok"] = True
+                rgb_status_cache["_rgb_last_utc"] = utc()
+                rgb_status_cache["_rgb_raw"] = j
+        except Exception:
+            with lock:
+                rgb_status_cache["_rgb_ok"] = False
+                rgb_status_cache["_rgb_last_utc"] = utc()
+                rgb_status_cache["_rgb_raw"] = {}
+        time.sleep(0.4)
+
+def compute_fused_locked():
+    j = rgb_status_cache.get("_rgb_raw", {}) or {}
+
+    last_det = j.get("last_det")
+    rgb_fire = False
+    rgb_smoke = False
+    fire_conf = 0.0
+    smoke_conf = 0.0
+
+    if last_det and isinstance(last_det, dict):
+        lab = str(last_det.get("label",""))
+        conf = float(last_det.get("conf", 0.0) or 0.0)
+        if lab == "fire":
+            fire_conf = conf
+            rgb_fire = conf >= 0.50
+        elif lab == "smoke":
+            smoke_conf = conf
+            rgb_smoke = conf >= 0.70
+
+    therm_fire = bool(rgb_status_cache.get("_thermal_fire", False))
+    fire = rgb_fire or therm_fire
+    reason = "rgb" if rgb_fire else ("thermal" if therm_fire else "none")
+
+    return {
+        "fire": fire,
+        "reason": reason,
+        "utc": utc(),
+        "rgb_fire": rgb_fire,
+        "rgb_smoke": rgb_smoke,
+        "fire_conf": round(fire_conf, 3),
+        "smoke_conf": round(smoke_conf, 3),
+        "thermal_fire": therm_fire,
+        "tmax_c": rgb_status_cache.get("_tmax_c", None),
+    }
+
+# -------------------------
+# GPS worker (SMART)
+# -------------------------
+def gps_worker():
+    global gps_cache
+    try:
+        import serial
+    except Exception:
+        with lock:
+            gps_cache.update({"ok": False, "reason": "pyserial_missing", "last_utc": utc()})
+        return
+
+    # seed with last known coords so UI never looks empty
+    last = load_last_good()
+    if last and isinstance(last, dict):
+        with lock:
+            gps_cache["lat"] = last.get("lat")
+            gps_cache["lon"] = last.get("lon")
+            gps_cache["sats"] = last.get("sats")
+            gps_cache["alt_m"] = last.get("alt_m")
+            gps_cache["stale"] = True
+            gps_cache["reason"] = "loaded_last_known"
+            gps_cache["last_utc"] = utc()
+
+    last_fix_t = 0.0
+    last_any_t = time.time()
+
+    # open raw log (best effort)
+    try:
+        rawf = open(GPS_RAW_LOG, "a", buffering=1)
+        rawf.write(f"\n--- GPS LOG START {utc()} ---\n")
+    except Exception:
+        rawf = None
+
+    while True:
+        devs = list_candidate_gps_devs()
+        if not devs:
+            with lock:
+                gps_cache.update({"ok": False, "reason": "no_gps_device_found", "last_utc": utc()})
+            time.sleep(1.0)
+            continue
+
+        opened = False
+        for dev in devs:
+            for baud in GPS_BAUDS:
+                try:
+                    with lock:
+                        gps_cache.update({"ok": False, "device": dev, "baud": baud, "reason": "trying_open", "last_utc": utc()})
+                    ser = serial.Serial(dev, baud, timeout=1)
+                    opened = True
+                    with lock:
+                        gps_cache.update({"ok": True, "device": dev, "baud": baud, "reason": "reading", "last_utc": utc()})
+                    # read loop
+                    gsv_sats_seen = None
+                    while True:
+                        line = ser.readline().decode(errors="ignore").strip()
+                        now = time.time()
+                        if line:
+                            last_any_t = now
+                            if rawf:
+                                rawf.write(line + "\n")
+
+                        if not line.startswith("$"):
+                            # check staleness
+                            if (now - last_fix_t) > GPS_TIMEOUT_S:
+                                with lock:
+                                    gps_cache["fix"] = False
+                                    gps_cache["stale"] = True
+                                    gps_cache["reason"] = "no_recent_fix (go outside)"
+                                    gps_cache["last_utc"] = utc()
+                            continue
+
+                        parts = line.split(",")
+                        typ = parts[0]
+
+                        # GGA: has fixq + sats + alt
+                        if typ.endswith("GGA") and len(parts) > 9:
+                            lat = nmea_degmin_to_deg(parts[2], parts[3])
+                            lon = nmea_degmin_to_deg(parts[4], parts[5])
+                            fixq = safe_int(parts[6])  # 0=no fix
+                            sats = safe_int(parts[7])
+                            altm = safe_float(parts[9])
+
+                            # update sats even if no fix (helps UI)
+                            with lock:
+                                if sats is not None:
+                                    gps_cache["sats"] = sats
+
+                            if lat is not None and lon is not None and fixq and fixq > 0:
+                                last_fix_t = now
+                                with lock:
+                                    gps_cache.update({
+                                        "ok": True, "fix": True, "stale": False,
+                                        "lat": lat, "lon": lon,
+                                        "alt_m": altm,
+                                        "reason": "GGA_fix",
+                                        "last_fix_utc": utc(),
+                                        "last_utc": utc()
+                                    })
+                                save_last_good(lat, lon, sats, altm)
+
+                        # RMC: status A/V + speed + course
+                        elif typ.endswith("RMC") and len(parts) > 8:
+                            status = parts[2]  # A=active, V=void
+                            lat = nmea_degmin_to_deg(parts[3], parts[4])
+                            lon = nmea_degmin_to_deg(parts[5], parts[6])
+                            spd = safe_float(parts[7])
+                            crs = safe_float(parts[8])
+
+                            if lat is not None and lon is not None and status == "A":
+                                last_fix_t = now
+                                with lock:
+                                    gps_cache.update({
+                                        "ok": True, "fix": True, "stale": False,
+                                        "lat": lat, "lon": lon,
+                                        "speed_kn": spd, "course_deg": crs,
+                                        "reason": "RMC_fix",
+                                        "last_fix_utc": utc(),
+                                        "last_utc": utc()
+                                    })
+                                save_last_good(lat, lon, gps_cache.get("sats"), gps_cache.get("alt_m"))
+
+                        # GSV: satellites in view (not always present but nice)
+                        elif typ.endswith("GSV") and len(parts) > 3:
+                            # field 3: satellites in view
+                            sv = safe_int(parts[3])
+                            if sv is not None:
+                                gsv_sats_seen = sv
+                                with lock:
+                                    gps_cache["sats"] = sv
+                                    gps_cache["last_utc"] = utc()
+
+                        # watchdog: if we have some data but no fix, keep showing last-known as stale
+                        if (now - last_fix_t) > GPS_TIMEOUT_S:
+                            with lock:
+                                if gps_cache.get("lat") is not None and gps_cache.get("lon") is not None:
+                                    gps_cache["stale"] = True
+                                gps_cache["fix"] = False
+                                gps_cache["reason"] = "no_recent_fix (go outside)"
+                                gps_cache["last_utc"] = utc()
+
+                        # if nothing at all for too long, break and retry another dev/baud
+                        if (now - last_any_t) > 8.0:
+                            ser.close()
+                            break
+
+                except Exception:
+                    try:
+                        if opened:
+                            ser.close()
+                    except Exception:
+                        pass
+                    continue
+
+        # if we got here, nothing held stable; retry loop
+        with lock:
+            gps_cache.update({"ok": False, "fix": False, "stale": True, "reason": "reconnecting", "last_utc": utc()})
+        time.sleep(1.0)
+
+# -------------------------
+# Routes
+# -------------------------
+@app.get("/rgb")
+def rgb_proxy():
+    def gen():
+        while True:
+            try:
+                with requests.get(RGB_BASE + "/stream", stream=True, timeout=5) as r:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            yield chunk
+            except Exception:
+                time.sleep(0.5)
+    return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+@app.get("/thermal")
+def thermal():
+    def gen():
+        while True:
+            with lock:
+                j = latest_therm_jpg
+            if j is None:
+                time.sleep(0.03)
+                continue
+            yield b"--frame\r\nContent-Type: image/jpeg\r\nCache-Control: no-store\r\n\r\n" + j + b"\r\n"
+            time.sleep(0.08)
+    return Response(gen(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+@app.get("/gps")
+def gps():
+    with lock:
+        return jsonify(dict(gps_cache))
+
+@app.get("/status")
+def status():
+    with lock:
+        fused = compute_fused_locked()
+        out = {
+            "fused": fused,
+            "rgb": {
+                "ok": bool(rgb_status_cache.get("_rgb_ok", False)),
+                "last_utc": rgb_status_cache.get("_rgb_last_utc", None),
+                "raw": rgb_status_cache.get("_rgb_raw", {})
+            },
+            "thermal": {
+                "ok": bool(rgb_status_cache.get("_thermal_ok", False)),
+                "tmax_c": rgb_status_cache.get("_tmax_c", None),
+                "thermal_fire": bool(rgb_status_cache.get("_thermal_fire", False)),
+                "threshold_c": THERM_FIRE_C,
+                "last_utc": rgb_status_cache.get("_thermal_last_utc", None),
+            },
+            "gps": dict(gps_cache),
+        }
+    return jsonify(out)
+
+@app.get("/")
+@app.get("/dashboard")
+def dash():
+    html = f"""
+<!doctype html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TerraGuard Fusion + Smart GPS</title>
+<style>
+body{{font-family:Arial;margin:12px}}
+.card{{border:1px solid #ddd;border-radius:12px;padding:12px;margin-bottom:12px}}
+.bad{{color:#c00;font-weight:800}}
+.ok{{color:#0a7;font-weight:800}}
+.pill{{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:6px 10px;margin:6px 8px 0 0}}
+.mono{{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}}
+img.rgb{{width:100%;max-height:{RGB_MAX_H}px;object-fit:contain;border-radius:12px;border:1px solid #ddd;background:#111}}
+img.th{{width:100%;max-height:{THERM_MAX_H}px;object-fit:contain;border-radius:12px;border:1px solid #ddd;background:#111}}
+</style></head><body>
+
+<div class="card">
+  <div style="font-size:20px;font-weight:800">TerraGuard Fusion Status</div>
+  <div id="top" class="ok" style="font-size:18px">Loading…</div>
+  <div class="mono" id="meta"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:18px;font-weight:800">RGB + AI</div>
+  <img class="rgb" src="/rgb">
+  <div id="rgb"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:18px;font-weight:800">Thermal (Lepton)</div>
+  <img class="th" src="/thermal">
+  <div id="th"></div>
+</div>
+
+<div class="card">
+  <div style="font-size:18px;font-weight:800">GPS (Smart)</div>
+  <div id="gps"></div>
+  <div class="mono">Tip: if fix stays false, take the GPS outside for 1–3 minutes (clear sky).</div>
+</div>
+
+<script>
+async function tick(){{
+  try{{
+    const r = await fetch('/status', {{cache:'no-store'}});
+    const j = await r.json();
+
+    const top = document.getElementById('top');
+    top.textContent = j.fused.fire ? '🔥 FIRE DETECTED' : '✅ NORMAL';
+    top.className = j.fused.fire ? 'bad' : 'ok';
+    document.getElementById('meta').textContent =
+      `reason=${{j.fused.reason}}  utc=${{j.fused.utc}}`;
+
+    document.getElementById('rgb').innerHTML =
+      `<span class="pill">rgb_ok: <b>${{j.rgb.ok}}</b></span>
+       <span class="pill">fire_conf: <b>${{j.fused.fire_conf.toFixed(2)}}</b></span>
+       <span class="pill">smoke_conf: <b>${{j.fused.smoke_conf.toFixed(2)}}</b></span>
+       <span class="pill">rgb_fire: <b>${{j.fused.rgb_fire}}</b></span>
+       <span class="pill">rgb_smoke: <b>${{j.fused.rgb_smoke}}</b></span>`;
+
+    document.getElementById('th').innerHTML =
+      `<span class="pill">thermal_ok: <b>${{j.thermal.ok}}</b></span>
+       <span class="pill">tmax_c: <b>${{j.thermal.tmax_c}}</b> (>=${{j.thermal.threshold_c}})</span>
+       <span class="pill">thermal_fire: <b>${{j.thermal.thermal_fire}}</b></span>`;
+
+    const g = j.gps;
+    document.getElementById('gps').innerHTML =
+      `<span class="pill">ok: <b>${{g.ok}}</b></span>
+       <span class="pill">fix: <b>${{g.fix}}</b></span>
+       <span class="pill">stale: <b>${{g.stale}}</b></span>
+       <span class="pill">lat: <b>${{g.lat}}</b></span>
+       <span class="pill">lon: <b>${{g.lon}}</b></span>
+       <span class="pill">sats: <b>${{g.sats}}</b></span>
+       <span class="pill">alt_m: <b>${{g.alt_m}}</b></span>
+       <span class="pill">spd_kn: <b>${{g.speed_kn}}</b></span>
+       <div class="mono">${{g.reason}} | ${{g.last_utc||''}} | dev=${{g.device||''}} baud=${{g.baud||''}}</div>`;
+  }}catch(e){{}}
+}}
+setInterval(tick, 1000); tick();
+</script>
+
+</body></html>
+"""
+    return render_template_string(html)
+
+def main():
+    print(f"[FUSION+SMARTGPS] RGB_BASE={RGB_BASE}")
+    print(f"[FUSION+SMARTGPS] Dashboard http://0.0.0.0:{PORT}/dashboard")
+    threading.Thread(target=thermal_worker, daemon=True).start()
+    threading.Thread(target=rgb_poller, daemon=True).start()
+    threading.Thread(target=gps_worker, daemon=True).start()
+    app.run(host="0.0.0.0", port=PORT, threaded=True)
+
+if __name__ == "__main__":
+    main()
+EOF
+
+chmod +x /home/anantarora/terraguard_fusion_dashboard_gps_smart.py
+
+
+
+python3 -m pip install --user pyserial || true
+
+pkill -f terraguard_fusion_dashboard_gps_smart.py || true
+
+RGB_BASE="http://127.0.0.1:5000" \
+PORT="8092" \
+python3 /home/anantarora/terraguard_fusion_dashboard_gps_smart.py
