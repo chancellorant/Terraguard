@@ -240,4 +240,13 @@ Torrance, California
 [LinkedIn](https://www.linkedin.com/in/anant-arora-0aaa39383)
 
 
+## Acknowledgments
+
+- NASA FIRMS (Fire Information for Resource Management System) for satellite fire-detection reference data.
+- D-Fire dataset contributors for publicly available fire and smoke imagery used in AI model training and evaluation.
+- CAL FIRE Fire Innovation Unit for discussion of the TerraGuard research during an October 2026 presentation.
+- Professor Michael Gollner, University of California, Berkeley, for scientific feedback concerning atmospheric transport and the detection of early combustion signatures.
+
+
+
 
