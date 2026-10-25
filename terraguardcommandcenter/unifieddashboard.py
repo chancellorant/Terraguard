@@ -7,7 +7,7 @@ import cv2
 from flask import Flask, Response, jsonify
 from datetime import datetime, timezone
 
-RTSP_URL = "rtsp://admin:Anant2009@192.168.8.135/h264Preview_01_sub"
+MODEL_PATH = "./best_float16.tflite"
 MODEL_PATH = "/home/anantarora/Desktop/best_float16.tflite"
 CONF_THRESHOLD = 0.6
 LABEL_SWAP = {0: "fire", 1: "smoke"}
