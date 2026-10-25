@@ -6,9 +6,10 @@ import numpy as np
 import cv2
 from flask import Flask, Response, jsonify
 from datetime import datetime, timezone
-
+RTSP_URL = "rtsp://USERNAME:PASSWORD@CAMERA_IP/h264Preview_01_sub"
 MODEL_PATH = "./best_float16.tflite"
-MODEL_PATH = "/home/anantarora/Desktop/best_float16.tflite"
+
+
 CONF_THRESHOLD = 0.6
 LABEL_SWAP = {0: "fire", 1: "smoke"}
 COLORS = {"fire": (0, 0, 255), "smoke": (180, 180, 0)}
