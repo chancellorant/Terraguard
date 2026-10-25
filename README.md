@@ -1,8 +1,9 @@
- Terraguard
- Wildfire Detection System
-TerraGuard is a ground-based, multi-sensor wildfire detection system designed to detect incipient ignition using environmental sensing and edge AI vision fusion.
-Developed by Anant Arora
-North High School – Torrance, California
+ # TerraGuard
+
+### Ground-Based Wildfire Detection and Environmental Monitoring
+
+Developed by Anant Arora  
+North High School | Torrance, California
 
 Project Structure
 Terraguard command center/
