@@ -226,10 +226,18 @@ RGB_BASE="http://127.0.0.1:5000" PORT="8092" python3 terraguarddashboard.py
 
 ### 6. Access the Dashboard
 
+
 Open a browser on the same network and navigate to:
 
 ```text
 http://<raspberry-pi-address>:8092
 ```
+## Author
+
+Anant Arora  
+North High School  
+Torrance, California  
+[LinkedIn](https://www.linkedin.com/in/anant-arora-0aaa39383)
+
 
 
