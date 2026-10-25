@@ -71,3 +71,25 @@ Wireless Notification
 
 Environmental sensing provides the initial indication of a potential combustion event. Visual and thermal systems provide additional evidence, while edge-based processing coordinates multi-sensor fusion, alert validation, and wireless notification.
 
+
+## Hardware
+
+TerraGuard integrates environmental sensing, visual and thermal imaging, edge computing, wireless communication, and power subsystems within a ground-based wildfire monitoring system.
+
+| Component | Function |
+|---|---|
+| **Raspberry Pi 5 (8 GB)** | Central edge computer for sensor integration, local processing, and multi-sensor fusion. |
+| **Hailo-8L AI Accelerator (13 TOPS)** | Accelerates on-device AI inference for visual fire and smoke detection. |
+| **Bosch BME688** | Measures gas resistance as a proxy for VOC trends, along with temperature, humidity, and atmospheric pressure. |
+| **PMS5003** | Measures particulate matter (PM₁, PM₂.₅, and PM₁₀). |
+| **ADS1115 Analog-to-Digital Converter** | Converts analog sensor signals for processing by the Raspberry Pi. |
+| **Reolink 4K PTZ Camera** | Provides RGB imagery for AI-assisted fire and smoke detection. |
+| **FLIR Lepton 3.5** | Provides thermal imaging for independent heat-related evidence. |
+| **Wind Vane and Anemometer** | Measure wind speed and direction to support environmental analysis and field testing. |
+| **GPS Module** | Provides geographic location information for the monitoring node. |
+| **LILYGO T-Beam (915 MHz LoRa)** | Supports wireless transmission of confirmed incident alerts to a gateway. |
+| **Telit LE910 LTE Modem / GL.iNet Router** | Supports cellular network connectivity, remote access, and dashboard communication. |
+| **Portable Power Station (288 Wh)** | Supplied electrical power during experimental testing. |
+| **Solar Panel (150 W) and 12 V LiFePO₄ Battery System** | Designed for future off-grid operation; autonomous solar-powered performance was not validated in the reported experiments. |
+
+
