@@ -11,8 +11,7 @@ North High School | Torrance, California
 
 ## Overview
 
-TerraGuard is an independent research project investigating whether combustion-related environmental changes near the ground can provide an earlier indication of possible wildfire ignition before reliable visual confirmation is available.
-
+TerraGuard is an independent research project investigating whether near-ground environmental disturbances associated with early-stage combustion can provide indications of incipient wildfire ignition before reliable visual confirmation is available.
 The system follows a **disturbance-first, multi-sensor fusion approach**. Ground-level sensors continuously monitor volatile organic compound (VOC) trends, fine particulate matter (PM₂.₅), temperature, humidity, and atmospheric conditions. When sustained environmental deviations are detected, visual and thermal sensing provide independent evidence to evaluate whether a combustion event may be occurring.
 
 TerraGuard integrates four coordinated subsystems: **TerraSense** (environmental sensing), **TerraVision** (visual and thermal detection), **TerraGuard Command Center** (edge-based processing and multi-sensor fusion), and **TerraNet** (wireless alert communication).
@@ -90,9 +89,7 @@ TerraGuard integrates environmental sensing, visual and thermal imaging, edge co
 | **LILYGO T-Beam (915 MHz LoRa)** | Supports wireless transmission of confirmed incident alerts to a gateway. |
 | **Telit LE910 LTE Modem / GL.iNet Router** | Supports cellular network connectivity, remote access, and dashboard communication. |
 | **Portable Power Station (288 Wh)** | Supplied electrical power during experimental testing. |
-| **Solar Panel (150 W) and 12 V LiFePO₄ Battery System** | Designed for future off-grid operation; autonomous solar-powered performance was not validated in the reported experiments. |
-
-
+| **Solar Panel and LiFePO₄ Battery System** | Designed to support continuous off-grid operation through solar charging and battery storage. |
 
 ## Experimental Data
 
@@ -108,6 +105,25 @@ The repository contains three experimental data archives:
 
 These datasets accompany the experimental findings documented in the TerraGuard research paper and provide supporting records for the investigation of early combustion indicators, multi-sensor fusion, and edge-based wildfire detection.
 
+
+## Results
+
+TerraGuard was evaluated through controlled indoor combustion experiments, structured outdoor trials, and AI model performance testing. The experiments investigated environmental disturbance detection, independent visual and thermal confirmation, multi-sensor fusion, and system response under different testing conditions.
+
+| Experiment | Results |
+|---|---|
+| Occluded-Flame Detection | During an indoor test with the flame visually obstructed, VOC-related sensor response increased approximately 5× and PM₂.₅ approximately 20× above baseline. Visual model confidence decreased from 0.95 to 0.20–0.41, while thermal sensing provided independent confirmation. A fused alert was generated approximately 80 seconds after ignition. |
+| False-Positive Suppression | Across eight non-fire trials, environmental sensing alone produced one false alert, compared with zero confirmed false alerts when multi-sensor fusion was applied. |
+| Outdoor Detection | Structured outdoor experiments at 2 m, 4 m, and 8 m demonstrated confirmed detection under the tested conditions. |
+| Alert Response Time | End-to-end alert delivery was recorded in under 5 seconds from the first sustained environmental deviation to dashboard notification. |
+| AI Model Performance | YOLOv8 evaluation on the D-Fire dataset reported precision of 0.883, recall of 0.840, and mAP@50 of 0.909. |
+| Edge Inference | On-device visual inference was reported at under 200 milliseconds per frame. |
+
+### Research Findings
+
+The results suggest that combustion-related environmental disturbances can provide an initial indication of potential ignition even when visual evidence is limited. Combining environmental measurements with independent visual or thermal confirmation helped distinguish suspected combustion events from non-fire disturbances in the tested scenarios.
+
+These findings support continued investigation of disturbance-first, multi-sensor wildfire detection, particularly the effects of distance, wind conditions, and atmospheric transport on early combustion signals.
 
 ## Limitations
 
