@@ -1,6 +1,6 @@
  # TerraGuard
 
-### Ground-Based Wildfire Detection and Environmental Monitoring
+### Ground-Based Pre-Visible Wildfire Detection Using Multi-Sensor Fusion and Edge Intelligence
 
 Developed by Anant Arora  
 North High School | Torrance, California
