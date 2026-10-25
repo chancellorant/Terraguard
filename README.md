@@ -18,35 +18,56 @@ The system follows a **disturbance-first, multi-sensor fusion approach**. Ground
 TerraGuard integrates four coordinated subsystems: **TerraSense** (environmental sensing), **TerraVision** (visual and thermal detection), **TerraGuard Command Center** (edge-based processing and multi-sensor fusion), and **TerraNet** (wireless alert communication).
 
 Controlled indoor experiments and structured outdoor trials examine early combustion detection, system response, false-positive suppression, and the reliability of multi-sensor fusion under varying environmental conditions.
-Project Structure
-Terraguard command center/
-•	Multi-sensor fusion logic
-•	Edge AI inference
-•	Alert decision engine
-terrasense/
-•	Environmental sensor acquisition (VOC, PM, temperature, humidity)
-•	Baseline modeling
-•	Suspicion state detection
-terranet/
-•	LoRa mesh communication module
-•	Alert packet transmission
 
-Experimental Data (CSV Logs)
-INDOORCSV.zip
-•	Indoor controlled combustion trials
-•	Includes VOC, PM2.5, temperature, YOLO confidence, fusion state logs
-CSV OUTDOOR.zip
-•	Outdoor structured ignition trials
-•	Includes distance-based detection data (2m, 4m, 8m)
-AI csv.zip
-•	Vision model inference outputs
-•	Bounding box confidence logs
 
-System Capabilities
-•	Disturbance-first detection (VOC + PM2.5)
-•	YOLOv8 fire/smoke detection (Hailo-8L accelerated)
-•	Multi-modal fusion logic
-•	Edge-based inference (<5s alert latency)
-•	LoRa mesh communication
 
+## System Architecture
+
+TerraGuard integrates ground-level environmental sensing, AI-assisted visual detection, thermal imaging, edge-based intelligence, and wireless communication within a coordinated wildfire detection architecture.
+
+```text
+        TerraSense                    TerraVision
+    Environmental Sensing        Visual & Thermal Detection
+    VOC • PM₂.₅ • Microclimate       RGB • Thermal • AI
+             |                              |
+             |                              |
+             +--------------+---------------+
+                            |
+                            v
+               TerraGuard Command Center
+               Edge Intelligence & Fusion
+                            |
+                            v
+                         TerraNet
+                 Wireless Communication
+                            |
+                            v
+                 Gateway & Dashboard
+                      Incident Alerts
+```
+
+### Core Subsystems
+
+| Subsystem | Primary Function |
+|---|---|
+| **TerraSense** | Monitors near-ground environmental conditions and identifies sustained combustion-related disturbances. |
+| **TerraVision** | Provides AI-assisted visual detection and thermal evidence for confirmation of suspected combustion events. |
+| **TerraGuard Command Center** | Integrates environmental, visual, and thermal information through on-device processing and multi-sensor fusion to determine alert status. |
+| **TerraNet** | Transmits confirmed incident information to a gateway for delivery to monitoring dashboards and connected interfaces. |
+
+### Detection Workflow
+
+Environmental Monitoring  
+↓  
+Disturbance Identification  
+↓  
+Visual/Thermal Evaluation  
+↓  
+Multi-Sensor Fusion  
+↓  
+Alert Generation  
+↓  
+Wireless Notification
+
+Environmental sensing provides the initial indication of a potential combustion event. Visual and thermal systems provide additional evidence, while edge-based processing coordinates multi-sensor fusion, alert validation, and wireless notification.
 
