@@ -5,6 +5,10 @@
 Developed by Anant Arora  
 North High School | Torrance, California
 
+<img src="docs/images/Terraguard outdoor field Deployment.png" alt="TerraGuard outdoor field deployment" width="650">
+
+*TerraGuard ground-based monitoring system during outdoor field testing.*
+
 Project Structure
 Terraguard command center/
 •	Multi-sensor fusion logic
