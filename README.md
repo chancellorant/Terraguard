@@ -125,3 +125,37 @@ Thermal confirmation and system scalability: The thermal confirmation threshold 
 
 
 
+## Repository Structure
+
+The repository contains TerraGuard's subsystem software, experimental datasets, and supporting documentation.
+
+```text
+.
+├── README.md
+├── .gitattributes
+├── terrasense/
+├── terraguardcommandcenter/
+├── terranet/
+├── docs/
+│   └── images/
+├── INDOORCSV.zip
+├── CSV OUTDOOR.zip
+└── Ai csv.zip
+```
+
+### Repository Contents
+
+| Directory or File | Description |
+|---|---|
+| `terrasense/` | Environmental sensor acquisition and monitoring code. |
+| `terraguardcommandcenter/` | Visual detection, edge processing, and monitoring dashboard code. |
+| `terranet/` | Communication and network connectivity code, including LTE modem configuration. |
+| `docs/images/` | Photographs and supporting project documentation. |
+| `INDOORCSV.zip` | Controlled indoor experimental data. |
+| `CSV OUTDOOR.zip` | Structured outdoor experimental data. |
+| `Ai csv.zip` | AI model training and evaluation records, together with NASA FIRMS satellite reference data. |
+
+
+
+
+
