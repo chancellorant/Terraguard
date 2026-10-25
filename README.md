@@ -93,3 +93,19 @@ TerraGuard integrates environmental sensing, visual and thermal imaging, edge co
 | **Solar Panel (150 W) and 12 V LiFePO₄ Battery System** | Designed for future off-grid operation; autonomous solar-powered performance was not validated in the reported experiments. |
 
 
+
+## Experimental Data
+
+TerraGuard's experimental research includes controlled indoor combustion tests, structured outdoor trials, and AI-based fire and smoke detection analysis. The collected datasets document environmental sensor responses, detection behavior, and system performance under different experimental conditions.
+
+The repository contains three experimental data archives:
+
+| Data Archive | Description |
+|---|---|
+| **INDOORCSV.zip** | Environmental sensor measurements and detection records collected during controlled indoor combustion experiments. |
+| **CSV OUTDOOR.zip** | Environmental sensor measurements and alert records collected during structured outdoor experiments, including trials conducted at distances of 2 m, 4 m, and 8 m. |
+| **Ai csv.zip** | YOLOv8 model training and evaluation records, including precision, recall, and mAP metrics, together with NASA FIRMS satellite fire-detection reference data. |
+
+These datasets accompany the experimental findings documented in the TerraGuard research paper and provide supporting records for the investigation of early combustion indicators, multi-sensor fusion, and edge-based wildfire detection.
+
+
