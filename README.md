@@ -159,3 +159,18 @@ The repository contains TerraGuard's subsystem software, experimental datasets, 
 
 
 
+## Current Research Direction
+
+TerraGuard's ongoing research focuses on understanding how combustion-related environmental signatures propagate through the atmosphere before reaching ground-level sensors.
+
+The central research question is:
+
+> How do distance, wind speed, and wind direction affect the transport, dilution, and detection timing of early combustion signatures such as VOCs and PM₂.₅ prior to reliable visual confirmation?
+
+Building on the initial indoor and outdoor experiments, the next phase of investigation focuses on:
+
+- Examining how combustion-related sensor responses change with increasing distance from the ignition source.
+- Investigating how wind speed and wind direction influence the transport and dilution of combustion-related gases and fine particles.
+- Evaluating how environmental conditions affect detection timing, consistency, and reliability.
+
+The objective is to improve understanding of atmospheric transport processes that influence ground-level detection and establish an experimental foundation for future wildfire detection research.
