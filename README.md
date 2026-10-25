@@ -174,3 +174,62 @@ Building on the initial indoor and outdoor experiments, the next phase of invest
 - Evaluating how environmental conditions affect detection timing, consistency, and reliability.
 
 The objective is to improve understanding of atmospheric transport processes that influence ground-level detection and establish an experimental foundation for future wildfire detection research.
+
+## Getting Started
+
+The following steps describe how to configure and run the TerraGuard software stack on a Raspberry Pi.
+
+### 1. Install Python Dependencies
+
+Install the required Python libraries on the Raspberry Pi:
+
+```bash
+pip install flask numpy opencv-python requests pyserial \
+  adafruit-blinka adafruit-circuitpython-bme680 \
+  adafruit-circuitpython-ads1x15 tflite-runtime
+```
+
+### 2. Configure Application Settings
+
+Create a local configuration file from the provided template:
+
+```bash
+cp terraguardcommandcenter/config_example.py terraguardcommandcenter/config.py
+```
+
+Edit `config.py` to specify your camera address and trained model file path. Keep this file private and do not upload it to GitHub.
+
+### 3. Start TerraSense
+
+Launch the environmental sensor dashboard:
+
+```bash
+python3 terrasense/terrasensedashboard.py
+```
+
+### 4. Start RGB Detection
+
+Launch the RGB inference server on port 5000:
+
+```bash
+cd terraguardcommandcenter
+python3 unifieddashboard.py
+```
+
+### 5. Start TerraGuard Command Center
+
+From the `terraguardcommandcenter/` directory, launch the Command Center dashboard on port 8092:
+
+```bash
+RGB_BASE="http://127.0.0.1:5000" PORT="8092" python3 terraguarddashboard.py
+```
+
+### 6. Access the Dashboard
+
+Open a browser on the same network and navigate to:
+
+```text
+http://<raspberry-pi-address>:8092
+```
+
+
