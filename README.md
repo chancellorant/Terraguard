@@ -109,3 +109,19 @@ The repository contains three experimental data archives:
 These datasets accompany the experimental findings documented in the TerraGuard research paper and provide supporting records for the investigation of early combustion indicators, multi-sensor fusion, and edge-based wildfire detection.
 
 
+## Limitations
+
+The experimental findings reflect controlled indoor and structured outdoor testing. The research identifies several limitations that require further investigation:
+
+Environmental transport and detection range: Combustion-related gases and particles undergo transport, mixing, and dilution before reaching ground-level sensors. Detection performance depends on distance, wind conditions, and sensor placement. The experiments examined distances of 2–8 m; performance over larger areas remains to be established.
+
+Experimental scale and sample size: Testing used small combustion sources, including candle flames and wood fragments. The study included three repetitions per indoor scenario, eight non-combustion trials, and two systematically recorded outdoor trials. Larger datasets and additional field experiments are needed to evaluate performance across more representative wildfire conditions.
+
+Environmental interference and model generalization: Non-fire atmospheric disturbances may produce sensor responses that overlap with combustion-related signals. Visual detection performance may also vary under heavy smoke, occlusion, low illumination, and other conditions not fully represented in the training and testing datasets.
+
+Communication and operational reliability: LoRa communication was tested over 2–8 m line-of-sight distances. Extended-range communication, multi-node network performance, and long-duration system stability require further evaluation. Intermittent service interruptions were observed during extended operation, and formal packet delivery rate measurements were not completed.
+
+Thermal confirmation and system scalability: The thermal confirmation threshold requires formal characterization and calibration. Broader node deployment, network coordination, and integration with operational fire-management systems remain subjects for future validation.
+
+
+
